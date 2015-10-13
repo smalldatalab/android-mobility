@@ -150,8 +150,10 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
         public Fragment getItem(int position) {
             switch (position) {
                 case 0:
-                    return ActivityRecognitionFragment.newInstance();
+                    return VisualizeFragment.newInstance();
                 case 1:
+                    return ActivityRecognitionFragment.newInstance();
+                case 2:
                     return LocationFragment.newInstance();
             }
             return null;
@@ -159,7 +161,7 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
 
         @Override
         public int getCount() {
-            return 2;
+            return 3;
         }
 
         @Override
@@ -167,8 +169,10 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
             Locale l = Locale.getDefault();
             switch (position) {
                 case 0:
-                    return getString(R.string.title_activity).toUpperCase(l);
+                    return getString(R.string.title_visualize).toLowerCase();
                 case 1:
+                    return getString(R.string.title_activity).toUpperCase(l);
+                case 2:
                     return getString(R.string.title_location).toUpperCase(l);
             }
             return null;
