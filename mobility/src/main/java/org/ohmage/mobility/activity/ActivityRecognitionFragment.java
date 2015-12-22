@@ -60,8 +60,6 @@ public class ActivityRecognitionFragment extends Fragment implements LoaderManag
     // The activity recognition update request object
     private ActivityDetectionRequester mActivityDetectionRequester;
 
-    // The activity recognition update removal object
-    private ActivityDetectionRemover mActivityDetectionRemover;
 
     // Spinner to choose the rate
     private Spinner mIntervalSpinner;
@@ -75,16 +73,16 @@ public class ActivityRecognitionFragment extends Fragment implements LoaderManag
     // Is the classifier running?
     private boolean mRunning;
 
-    public static ActivityRecognitionFragment newInstance() {
-        ActivityRecognitionFragment fragment = new ActivityRecognitionFragment();
-        return fragment;
-    }
-
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
      * fragment (e.g. upon screen orientation changes).
      */
     public ActivityRecognitionFragment() {
+    }
+
+    public static ActivityRecognitionFragment newInstance() {
+        ActivityRecognitionFragment fragment = new ActivityRecognitionFragment();
+        return fragment;
     }
 
     @Override
@@ -93,7 +91,6 @@ public class ActivityRecognitionFragment extends Fragment implements LoaderManag
 
         // Get detection requester and remover objects
         mActivityDetectionRequester = new ActivityDetectionRequester(getActivity());
-        mActivityDetectionRemover = new ActivityDetectionRemover(getActivity());
 
         mPrefs = getActivity().getSharedPreferences(ActivityUtils.SHARED_PREFERENCES,
                 Context.MODE_PRIVATE);
@@ -239,8 +236,7 @@ public class ActivityRecognitionFragment extends Fragment implements LoaderManag
                                  * Restart the removal of all activity recognition updates for the
                                  * PendingIntent.
                                  */
-                            mActivityDetectionRemover.removeUpdates(
-                                    mActivityDetectionRequester.getRequestPendingIntent());
+                            mActivityDetectionRequester.removeUpdates();
 
                         }
                         break;
@@ -345,7 +341,7 @@ public class ActivityRecognitionFragment extends Fragment implements LoaderManag
         mRequestType = ActivityUtils.REQUEST_TYPE.REMOVE;
 
         // Pass the remove request to the remover object
-        mActivityDetectionRemover.removeUpdates(mActivityDetectionRequester.getRequestPendingIntent());
+        mActivityDetectionRequester.removeUpdates();
 
         /*
          * Cancel the PendingIntent. Even if the removal request fails, canceling the PendingIntent

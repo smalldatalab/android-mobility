@@ -26,10 +26,8 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesClient;
-import com.google.android.gms.common.GooglePlayServicesClient.ConnectionCallbacks;
-import com.google.android.gms.common.GooglePlayServicesClient.OnConnectionFailedListener;
 import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.common.api.GoogleApiClient;
 
 /**
  * Class for connecting to Location Services and activity recognition updates.
@@ -41,8 +39,8 @@ import com.google.android.gms.common.GooglePlayServicesUtil;
  * To use a DetectionRequester, instantiate it and call requestUpdates(). Everything else is done
  * automatically.
  */
-public abstract class DetectionRequester<T extends GooglePlayServicesClient>
-        implements ConnectionCallbacks, OnConnectionFailedListener {
+public abstract class DetectionRequester
+        implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
     // Storage for a context from the calling client
     private Context mContext;
@@ -51,7 +49,7 @@ public abstract class DetectionRequester<T extends GooglePlayServicesClient>
     private PendingIntent mRequestPendingIntent;
 
     // Stores the current instantiation of the activity recognition client
-    private T mGooglePlayServicesClient;
+    private GoogleApiClient mGooglePlayServicesClient;
 
     public DetectionRequester(Context context) {
         // Save the context
@@ -90,6 +88,10 @@ public abstract class DetectionRequester<T extends GooglePlayServicesClient>
         }
     }
 
+    public void removeUpdates() {
+        requestUpdatesFromClient(mContext, getGooglePlayServicesClient(), createRequestPendingIntent());
+    }
+
     /**
      * Make the actual update request. This is called from onConnected().
      */
@@ -100,19 +102,22 @@ public abstract class DetectionRequester<T extends GooglePlayServicesClient>
          */
         requestUpdatesFromClient(mContext, getGooglePlayServicesClient(), createRequestPendingIntent());
 
-        // Disconnect the client
-        requestDisconnection();
     }
 
     /**
      * Extending classes should implement this method and remove the request for updates
      */
-    protected abstract void requestUpdatesFromClient(Context context, T client, PendingIntent intent);
+    protected abstract void requestUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent);
+
+    /**
+     * Extending classes should implement this method and remove the request for updates
+     */
+    protected abstract void removeUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent);
 
     /**
      * Extending classes should implement this method and create the play services client they need
      */
-    protected abstract T createGooglePlayServicesClient(Context context);
+    protected abstract GoogleApiClient createGooglePlayServicesClient(Context context);
 
     /**
      * Extending classes should implement this method and return an intent to the IntentService
@@ -139,19 +144,13 @@ public abstract class DetectionRequester<T extends GooglePlayServicesClient>
      *
      * @return An ActivityRecognitionClient object
      */
-    private T getGooglePlayServicesClient() {
+    private GoogleApiClient getGooglePlayServicesClient() {
         if (mGooglePlayServicesClient == null) {
             mGooglePlayServicesClient = createGooglePlayServicesClient(mContext);
         }
         return mGooglePlayServicesClient;
     }
 
-    /**
-     * Get the current activity recognition client and disconnect from Location Services
-     */
-    private void requestDisconnection() {
-        getGooglePlayServicesClient().disconnect();
-    }
 
     /*
      * Called by Location Services once the activity recognition client is connected.
@@ -165,18 +164,11 @@ public abstract class DetectionRequester<T extends GooglePlayServicesClient>
 
         // Continue the process of requesting activity recognition updates
         continueRequestUpdates();
+        getGooglePlayServicesClient().disconnect();
     }
-
-    /*
-     * Called by Location Services once the activity recognition client is disconnected.
-     */
     @Override
-    public void onDisconnected() {
-        // In debug mode, log the disconnection
-        Log.d(ActivityUtils.APPTAG, mContext.getString(R.string.disconnected));
-
-        // Destroy the current activity recognition client
-        mGooglePlayServicesClient = null;
+    public void onConnectionSuspended(int arg) {
+        Log.d(ActivityUtils.APPTAG, "Connection Suspended arg:" + arg);
     }
 
     /**

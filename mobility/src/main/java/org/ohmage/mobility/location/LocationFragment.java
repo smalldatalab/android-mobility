@@ -47,8 +47,6 @@ public class LocationFragment extends SupportMapFragment implements LoaderManage
     // The location update request object
     private LocationDetectionRequester mLocationDetectionRequester;
 
-    // The location update removal object
-    private LocationDetectionRemover mLocationDetectionRemover;
 
     // Spinner to choose the rate
     private Spinner mIntervalSpinner;
@@ -70,16 +68,16 @@ public class LocationFragment extends SupportMapFragment implements LoaderManage
 
     private ArrayList<LatLng> mLocations = new ArrayList<LatLng>();
 
-    public static LocationFragment newInstance() {
-        LocationFragment fragment = new LocationFragment();
-        return fragment;
-    }
-
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
      * fragment (e.g. upon screen orientation changes).
      */
     public LocationFragment() {
+    }
+
+    public static LocationFragment newInstance() {
+        LocationFragment fragment = new LocationFragment();
+        return fragment;
     }
 
     @Override
@@ -88,7 +86,6 @@ public class LocationFragment extends SupportMapFragment implements LoaderManage
 
         // Get detection requester and remover objects
         mLocationDetectionRequester = new LocationDetectionRequester(getActivity());
-        mLocationDetectionRemover = new LocationDetectionRemover(getActivity());
 
         mPrefs = getActivity().getSharedPreferences(ActivityUtils.SHARED_PREFERENCES,
                 Context.MODE_PRIVATE);
@@ -268,8 +265,7 @@ public class LocationFragment extends SupportMapFragment implements LoaderManage
                                  * Restart the removal of all location updates for the
                                  * PendingIntent.
                                  */
-                            mLocationDetectionRemover.removeUpdates(
-                                    mLocationDetectionRequester.getRequestPendingIntent());
+                            mLocationDetectionRequester.removeUpdates();
 
                         }
                         break;
@@ -374,7 +370,7 @@ public class LocationFragment extends SupportMapFragment implements LoaderManage
         mRequestType = ActivityUtils.REQUEST_TYPE.REMOVE;
 
         // Pass the remove request to the remover object
-        mLocationDetectionRemover.removeUpdates(mLocationDetectionRequester.getRequestPendingIntent());
+        mLocationDetectionRequester.removeUpdates();
 
         /*
          * Cancel the PendingIntent. Even if the removal request fails, canceling the PendingIntent

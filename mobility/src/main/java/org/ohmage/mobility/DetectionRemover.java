@@ -25,8 +25,8 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.common.api.GoogleApiClient;
 
 
 /**
@@ -39,15 +39,15 @@ import com.google.android.gms.common.GooglePlayServicesUtil;
  * <p/>
  * To use a DetectionRemover, instantiate it, then call removeUpdates().
  */
-public abstract class DetectionRemover<T extends GooglePlayServicesClient>
-        implements GooglePlayServicesClient.ConnectionCallbacks,
-        GooglePlayServicesClient.OnConnectionFailedListener {
+public abstract class DetectionRemover
+        implements GoogleApiClient.ConnectionCallbacks,
+        GoogleApiClient.OnConnectionFailedListener {
 
     // Storage for a context from the calling client
     private Context mContext;
 
     // Stores the current instantiation of the activity recognition client
-    private T mGooglePlayServicesClient;
+    private GoogleApiClient mGooglePlayServicesClient;
 
     // The PendingIntent sent in removeUpdates()
     private PendingIntent mCurrentIntent;
@@ -97,7 +97,7 @@ public abstract class DetectionRemover<T extends GooglePlayServicesClient>
      *
      * @return An ActivityRecognitionClient object
      */
-    public GooglePlayServicesClient getGooglePlayServicesClient() {
+    public GoogleApiClient getGooglePlayServicesClient() {
         /*
          * If a client doesn't already exist, create a new one, otherwise
          * return the existing one. This allows multiple attempts to send
@@ -113,6 +113,16 @@ public abstract class DetectionRemover<T extends GooglePlayServicesClient>
     }
 
     /**
+     * Set the global activity recognition client
+     *
+     * @param client An ActivityRecognitionClient object
+     */
+    public void setGooglePlayServicesClient(GoogleApiClient client) {
+        mGooglePlayServicesClient = client;
+
+    }
+
+    /**
      * Get a activity recognition client and disconnect from Location Services
      */
     private void requestDisconnection() {
@@ -122,16 +132,6 @@ public abstract class DetectionRemover<T extends GooglePlayServicesClient>
 
         // Set the client to null
         setGooglePlayServicesClient(null);
-    }
-
-    /**
-     * Set the global activity recognition client
-     *
-     * @param client An ActivityRecognitionClient object
-     */
-    public void setGooglePlayServicesClient(T client) {
-        mGooglePlayServicesClient = client;
-
     }
 
     /*
@@ -168,25 +168,14 @@ public abstract class DetectionRemover<T extends GooglePlayServicesClient>
     /**
      * Extending classes should implement this method and remove the request for updates
      */
-    protected abstract void removeUpdatesFromClient(Context context, T client, PendingIntent intent);
+    protected abstract void removeUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent);
 
     /**
      * Extending classes should implement this method and create the play services client they need
      */
-    protected abstract T createGooglePlayServicesClient(Context context);
+    protected abstract GoogleApiClient createGooglePlayServicesClient(Context context);
 
-    /*
-     * Called by Location Services once the activity recognition client is disconnected.
-     */
-    @Override
-    public void onDisconnected() {
 
-        // In debug mode, log the disconnection
-        Log.d(ActivityUtils.APPTAG, mContext.getString(R.string.disconnected));
-
-        // Destroy the current activity recognition client
-        mGooglePlayServicesClient = null;
-    }
 
     /*
      * Implementation of OnConnectionFailedListener.onConnectionFailed

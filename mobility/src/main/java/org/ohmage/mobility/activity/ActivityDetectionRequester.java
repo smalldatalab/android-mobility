@@ -21,7 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.google.android.gms.location.ActivityRecognitionClient;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.ActivityRecognition;
 
 import org.ohmage.mobility.ActivityUtils;
 import org.ohmage.mobility.DetectionRequester;
@@ -36,7 +37,7 @@ import org.ohmage.mobility.DetectionRequester;
  * To use a DetectionRequester, instantiate it and call requestUpdates(). Everything else is done
  * automatically.
  */
-public class ActivityDetectionRequester extends DetectionRequester<ActivityRecognitionClient> {
+public class ActivityDetectionRequester extends DetectionRequester {
 
     // Interval for listener
     private long mIntervalMillis;
@@ -55,9 +56,10 @@ public class ActivityDetectionRequester extends DetectionRequester<ActivityRecog
     }
 
     @Override
-    protected void requestUpdatesFromClient(Context context, ActivityRecognitionClient client, PendingIntent intent) {
+    protected void requestUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
         Log.d(ActivityUtils.APPTAG, "Starting Activity: " + mIntervalMillis);
-        client.requestActivityUpdates(mIntervalMillis, intent);
+        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(client, mIntervalMillis, intent);
+
 
         // Save request state
         context.getSharedPreferences(ActivityUtils.SHARED_PREFERENCES, Context.MODE_PRIVATE).edit()
@@ -65,11 +67,27 @@ public class ActivityDetectionRequester extends DetectionRequester<ActivityRecog
     }
 
     @Override
-    protected ActivityRecognitionClient createGooglePlayServicesClient(Context context) {
-        return new ActivityRecognitionClient(context, this, this);
+    protected void removeUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
+        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(client, intent);
+
     }
+
+    @Override
+    protected GoogleApiClient createGooglePlayServicesClient(Context context) {
+        return new GoogleApiClient.Builder(context)
+                .addApi(ActivityRecognition.API)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .build();
+    }
+
     @Override
     protected Intent getIntentService(Context context) {
         return new Intent(context, ActivityRecognitionIntentService.class);
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
     }
 }

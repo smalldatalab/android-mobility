@@ -17,6 +17,12 @@ import org.ohmage.mobility.location.LocationDetectionRequester;
  */
 public class AutoStartUp extends BroadcastReceiver {
 
+    public static void repeatingAutoStart(Context context) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(context, AutoStartUp.class), PendingIntent.FLAG_UPDATE_CURRENT);
+        alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime(), AlarmManager.INTERVAL_FIFTEEN_MINUTES, pendingIntent);
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
 
@@ -44,11 +50,5 @@ public class AutoStartUp extends BroadcastReceiver {
         if(intent.getAction()!=null && intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED)) {
             repeatingAutoStart(context);
         }
-    }
-    public static void repeatingAutoStart(Context context){
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(context, AutoStartUp.class), PendingIntent.FLAG_UPDATE_CURRENT);
-        alarmManager.cancel(pendingIntent);
-        alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime(), AlarmManager.INTERVAL_FIFTEEN_MINUTES, pendingIntent);
     }
 }

@@ -1,37 +1,48 @@
 package org.ohmage.mobility;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.SystemClock;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.view.ViewPager;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.ActionBarActivity;
+import android.os.Handler;
+import android.support.v7.app.AppCompatActivity;
+import android.text.format.DateUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import org.ohmage.mobility.activity.ActivityRecognitionFragment;
-import org.ohmage.mobility.location.LocationFragment;
-
-import java.util.Locale;
+import java.util.List;
 
 import io.smalldatalab.omhclient.DSUClient;
+import io.smalldatalab.omhclient.DSUDataPoint;
 
 
-public class MainActivity extends ActionBarActivity implements ActionBar.TabListener {
+public class MainActivity extends AppCompatActivity {
 
     final static String TAG = MainActivity.class.getSimpleName();
-    SectionsPagerAdapter mSectionsPagerAdapter;
+
     DSUClient mDSUClient;
-    ViewPager mViewPager;
+
+
+    // Create the Handler object (on the main thread by default)
+    Handler handler = new Handler();
+    private Runnable runnableCode = new Runnable() {
+        @Override
+        public void run() {
+            List<DSUDataPoint> lastRecord = DSUDataPoint.find(DSUDataPoint.class, null, null, null, "creation_date_time desc", "1");
+
+            if (lastRecord.size() > 0) {
+                try {
+                    String timeStr = lastRecord.get(0).toJson().getJSONObject("header").getString("creation_date_time");
+                    String elapsedTimeStr = (String) DateUtils.getRelativeTimeSpanString(ISO8601.toCalendar(timeStr).getTimeInMillis(), System.currentTimeMillis(), 0);
+
+                    getSupportActionBar().setSubtitle("Last data point: " + elapsedTimeStr);
+                } catch (Exception e) {
+                    Log.e(TAG, "", e);
+                }
+
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,34 +50,6 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Set up the action bar.
-        final ActionBar actionBar = getSupportActionBar();
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
-
-        mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
-
-        // Set up the ViewPager with the sections adapter.
-        mViewPager = (ViewPager) findViewById(R.id.pager);
-        mViewPager.setAdapter(mSectionsPagerAdapter);
-
-        // When swiping between different sections, select the corresponding
-        // tab. We can also use ActionBar.Tab#select() to do this if we have
-        // a reference to the Tab.
-        mViewPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-            @Override
-            public void onPageSelected(int position) {
-                actionBar.setSelectedNavigationItem(position);
-            }
-        });
-
-        // For each of the sections in the app, add a tab to the action bar.
-        for (int i = 0; i < mSectionsPagerAdapter.getCount(); i++) {
-            actionBar.addTab(
-                    actionBar.newTab()
-                            .setText(mSectionsPagerAdapter.getPageTitle(i))
-                            .setTabListener(this)
-            );
-        }
         // Init a DSU client
         mDSUClient =
                 new DSUClient(
@@ -80,6 +63,7 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
 
     }
 
+
     @Override
     public void onResume() {
         super.onResume();
@@ -88,20 +72,14 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
             Intent mainActivityIntent = new Intent(MainActivity.this, LoginActivity.class);
             startActivity(mainActivityIntent);
         }
+
+        // Define the code block to be executed
+
+        handler.post(runnableCode);
+        // force syncing the Mobility data everytime when the user turn on the app
+        mDSUClient.forceSync();
     }
 
-    @Override
-    public void onTabSelected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-        mViewPager.setCurrentItem(tab.getPosition());
-    }
-
-    @Override
-    public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-    }
-
-    @Override
-    public void onTabReselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -136,46 +114,6 @@ public class MainActivity extends ActionBarActivity implements ActionBar.TabList
         return super.onOptionsItemSelected(item);
     }
 
-    /**
-     * A {@link FragmentPagerAdapter} that returns a fragment corresponding to
-     * one of the sections/tabs/pages.
-     */
-    public class SectionsPagerAdapter extends FragmentPagerAdapter {
 
-        public SectionsPagerAdapter(FragmentManager fm) {
-            super(fm);
-        }
 
-        @Override
-        public Fragment getItem(int position) {
-            switch (position) {
-                case 0:
-                    return VisualizeFragment.newInstance();
-                case 1:
-                    return ActivityRecognitionFragment.newInstance();
-                case 2:
-                    return LocationFragment.newInstance();
-            }
-            return null;
-        }
-
-        @Override
-        public int getCount() {
-            return 3;
-        }
-
-        @Override
-        public CharSequence getPageTitle(int position) {
-            Locale l = Locale.getDefault();
-            switch (position) {
-                case 0:
-                    return getString(R.string.title_visualize).toLowerCase();
-                case 1:
-                    return getString(R.string.title_activity).toUpperCase(l);
-                case 2:
-                    return getString(R.string.title_location).toUpperCase(l);
-            }
-            return null;
-        }
-    }
 }

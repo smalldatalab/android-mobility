@@ -21,8 +21,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.google.android.gms.location.LocationClient;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
 
 import org.ohmage.mobility.ActivityUtils;
 import org.ohmage.mobility.DetectionRequester;
@@ -37,7 +38,7 @@ import org.ohmage.mobility.DetectionRequester;
  * To use a DetectionRequester, instantiate it and call requestUpdates(). Everything else is done
  * automatically.
  */
-public class LocationDetectionRequester extends DetectionRequester<LocationClient> {
+public class LocationDetectionRequester extends DetectionRequester {
 
     // Location request object to configure the location client
     private final LocationRequest mLocationRequest;
@@ -65,13 +66,14 @@ public class LocationDetectionRequester extends DetectionRequester<LocationClien
     }
 
     @Override
-    protected void requestUpdatesFromClient(Context context, LocationClient client, PendingIntent intent) {
+    protected void requestUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
         Log.d(ActivityUtils.APPTAG, "Starting Location: " + mIntervalMillis + ", " + mPriority);
 
         mLocationRequest.setInterval(mIntervalMillis);
         mLocationRequest.setPriority(mPriority);
         mLocationRequest.setFastestInterval(1000);
-        client.requestLocationUpdates(mLocationRequest, intent);
+        LocationServices.FusedLocationApi.requestLocationUpdates(client, mLocationRequest, intent);
+
 
         // Save request state
         context.getSharedPreferences(ActivityUtils.SHARED_PREFERENCES, Context.MODE_PRIVATE).edit()
@@ -79,8 +81,17 @@ public class LocationDetectionRequester extends DetectionRequester<LocationClien
     }
 
     @Override
-    protected LocationClient createGooglePlayServicesClient(Context context) {
-        return new LocationClient(context, this, this);
+    protected void removeUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
+        LocationServices.FusedLocationApi.removeLocationUpdates(client, intent);
+    }
+
+    @Override
+    protected GoogleApiClient createGooglePlayServicesClient(Context context) {
+        return new GoogleApiClient.Builder(context)
+                .addApi(LocationServices.API)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .build();
     }
 
     @Override

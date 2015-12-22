@@ -2,7 +2,6 @@ package org.ohmage.mobility;
 
 import android.accounts.AccountManager;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -12,10 +11,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import com.google.android.gms.maps.SupportMapFragment;
-
 import io.smalldatalab.omhclient.DSUAuth;
-import io.smalldatalab.omhclient.DSUDataPoint;
 
 
 /**
@@ -25,16 +21,16 @@ public class VisualizeFragment extends Fragment {
 
     private WebView webview;
 
-    public static VisualizeFragment newInstance() {
-        VisualizeFragment fragment = new VisualizeFragment();
-        return fragment;
-    }
-
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
      * fragment (e.g. upon screen orientation changes).
      */
     public VisualizeFragment() {
+    }
+
+    public static VisualizeFragment newInstance() {
+        VisualizeFragment fragment = new VisualizeFragment();
+        return fragment;
     }
 
     @Override
@@ -77,7 +73,7 @@ public class VisualizeFragment extends Fragment {
 
         @Override
         protected void onPostExecute(String token) {
-            webview.loadUrl("http://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token + "&token_type=bearer&scope=read_data_points");
+            webview.loadUrl("http://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token);
         }
     }
 

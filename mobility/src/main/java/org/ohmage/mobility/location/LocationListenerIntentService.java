@@ -21,7 +21,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.location.Location;
 
-import com.google.android.gms.location.LocationClient;
+import com.google.android.gms.location.LocationResult;
 
 import org.joda.time.DateTime;
 import org.joda.time.LocalDateTime;
@@ -53,12 +53,12 @@ public class LocationListenerIntentService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
 
-        Location result = intent.getParcelableExtra(LocationClient.KEY_LOCATION_CHANGED);
+
 
         // If the intent contains an update
-        if (result != null) {
+        if (LocationResult.hasResult(intent)) {
 
-
+            LocationResult result = LocationResult.extractResult(intent);
             // Write the result to the DSU
             writeResultToDsu(result);
 
@@ -67,34 +67,36 @@ public class LocationListenerIntentService extends IntentService {
         }
     }
 
-    private void writeResultToDsu(Location result) {
+    private void writeResultToDsu(LocationResult result) {
 
-        if (result != null) {
-            try {
-                JSONObject body = new JSONObject();
-                body.put("latitude", result.getLatitude());
-                body.put("longitude", result.getLongitude());
-                body.put("accuracy", result.getAccuracy());
-                body.put("altitude", result.getAltitude());
-                body.put("bearing", result.getBearing());
-                body.put("speed", result.getSpeed());
-                body.put("timestamp", result.getTime());
+        for (Location location : result.getLocations()) {
+            if (location != null) {
+                try {
+                    JSONObject body = new JSONObject();
+                    body.put("latitude", location.getLatitude());
+                    body.put("longitude", location.getLongitude());
+                    body.put("accuracy", location.getAccuracy());
+                    body.put("altitude", location.getAltitude());
+                    body.put("bearing", location.getBearing());
+                    body.put("speed", location.getSpeed());
+                    body.put("timestamp", location.getTime());
 
 
-                DSUDataPoint datapoint = new DSUDataPointBuilder()
-                        .setSchemaNamespace(getString(R.string.schema_namespace))
-                        .setSchemaName(getString(R.string.location_schema_name))
-                        .setSchemaVersion(getString(R.string.schema_version))
-                        .setAcquisitionModality(getString(R.string.acquisition_modality))
-                        .setAcquisitionSource(getString(R.string.acquisition_source_name))
-                        .setCreationDateTime(new DateTime(result.getTime()))
-                        .setBody(body).createDSUDataPoint();
-                datapoint.save();
-            } catch (JSONException e) {
-                e.printStackTrace();
+                    DSUDataPoint datapoint = new DSUDataPointBuilder()
+                            .setSchemaNamespace(getString(R.string.schema_namespace))
+                            .setSchemaName(getString(R.string.location_schema_name))
+                            .setSchemaVersion(getString(R.string.schema_version))
+                            .setAcquisitionModality(getString(R.string.acquisition_modality))
+                            .setAcquisitionSource(getString(R.string.acquisition_source_name))
+                            .setCreationDateTime(new DateTime(location.getTime()))
+                            .setBody(body).createDSUDataPoint();
+                    datapoint.save();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+
             }
-
-
         }
 
     }
@@ -105,12 +107,13 @@ public class LocationListenerIntentService extends IntentService {
      *
      * @param result The result extracted from the incoming Intent
      */
-    private void logLocationResult(Location result) {
+    private void logLocationResult(LocationResult result) {
 
         StringBuilder msg = new StringBuilder(DateTimeFormat.mediumDateTime()
                 .print(new LocalDateTime())).append("|");
-
-        msg.append(result.getLatitude()).append(", ").append(result.getLongitude());
+        for (Location location : result.getLocations()) {
+            msg.append(location.getLatitude()).append(", ").append(location.getLongitude());
+        }
 
         ContentValues values = new ContentValues();
         values.put(MobilityContentProvider.LocationPoint.DATA, msg.toString());

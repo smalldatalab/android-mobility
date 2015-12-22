@@ -55,5 +55,7 @@
     <string name="password_hint">Password</string>
     <string name="login">Login</string>
     <string name="visualize">Visualize</string>
+    <string name="title_activity_main2">Main2Activity</string>
+    <string name="title_activity_location">LocationActivity</string>
 
 </resources>
