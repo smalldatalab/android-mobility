@@ -27,6 +27,7 @@ public class LoginActivity extends Activity {
         if (mDSUClient.isSignedIn()) {
             Intent mainActivityIntent = new Intent(LoginActivity.this, MainActivity.class);
             startActivity(mainActivityIntent);
+            this.finish();
         }
     }
 
