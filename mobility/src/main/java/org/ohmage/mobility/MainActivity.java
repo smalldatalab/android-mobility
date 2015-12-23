@@ -21,7 +21,6 @@ import io.smalldatalab.omhclient.ISO8601;
 public class MainActivity extends AppCompatActivity {
 
     final static String TAG = MainActivity.class.getSimpleName();
-
     DSUClient mDSUClient;
 
     private void checkSignIn() {
@@ -29,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
         if (!mDSUClient.isSignedIn()) {
             Intent mainActivityIntent = new Intent(MainActivity.this, LoginActivity.class);
             startActivity(mainActivityIntent);
-            finishActivity(0);
+            this.finish();
         }
     }
     @Override

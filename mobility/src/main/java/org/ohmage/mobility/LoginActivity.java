@@ -3,6 +3,7 @@ package org.ohmage.mobility;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
@@ -19,6 +20,15 @@ public class LoginActivity extends Activity {
     final static private String TAG = LoginActivity.class.getSimpleName();
     private TextView editDsuUrl;
     private DSUClient mDSUClient;
+
+
+    private void checkSignIn() {
+        // show MainActivity if the user has signed in
+        if (mDSUClient.isSignedIn()) {
+            Intent mainActivityIntent = new Intent(LoginActivity.this, MainActivity.class);
+            startActivity(mainActivityIntent);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +48,12 @@ public class LoginActivity extends Activity {
                 signinOmh();
             }
         });
+        mDSUClient =
+                new DSUClient(
+                        DSUHelper.getUrl(this),
+                        this.getString(R.string.dsu_client_id),
+                        this.getString(R.string.dsu_client_secret),
+                        this);
         // Allow user the change the DSU URL
         editDsuUrl = (TextView) this.findViewById(R.id.edit_dsu_url);
         editDsuUrl.setOnClickListener(new View.OnClickListener() {
@@ -70,13 +86,14 @@ public class LoginActivity extends Activity {
         });
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        checkSignIn();
+
+    }
     private void signinGoogle() {
-        mDSUClient =
-                new DSUClient(
-                        DSUHelper.getUrl(this),
-                        this.getString(R.string.dsu_client_id),
-                        this.getString(R.string.dsu_client_secret),
-                        this);
+
         new Thread() {
             @Override
             public void run() {
@@ -84,8 +101,7 @@ public class LoginActivity extends Activity {
                     if (mDSUClient.blockingGoogleSignIn(LoginActivity.this) != null) {
                         showToast("Sign In Succeeded");
                         setResult(RESULT_OK);
-                        LoginActivity.this.finish();
-                        return;
+                        checkSignIn();
                     }
                 } catch (IOException e) {
                     showToast("Sign In Failed. Please check your Internet connection");
@@ -125,8 +141,7 @@ public class LoginActivity extends Activity {
                     if (mDSUClient.blockingOmhSignIn(LoginActivity.this, username, password) != null) {
                         showToast("Sign In Succeeded");
                         setResult(RESULT_OK);
-                        LoginActivity.this.finish();
-                        return;
+                        checkSignIn();
                     }
                 } catch (IOException e) {
                     showToast("Sign In Failed. Please check your Internet connection");
