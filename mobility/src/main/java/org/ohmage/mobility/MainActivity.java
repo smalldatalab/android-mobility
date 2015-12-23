@@ -2,7 +2,7 @@ package org.ohmage.mobility;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -10,10 +10,12 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import java.text.ParseException;
 import java.util.List;
 
 import io.smalldatalab.omhclient.DSUClient;
 import io.smalldatalab.omhclient.DSUDataPoint;
+import io.smalldatalab.omhclient.ISO8601;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -21,28 +23,6 @@ public class MainActivity extends AppCompatActivity {
     final static String TAG = MainActivity.class.getSimpleName();
 
     DSUClient mDSUClient;
-
-
-    // Create the Handler object (on the main thread by default)
-    Handler handler = new Handler();
-    private Runnable runnableCode = new Runnable() {
-        @Override
-        public void run() {
-            List<DSUDataPoint> lastRecord = DSUDataPoint.find(DSUDataPoint.class, null, null, null, "creation_date_time desc", "1");
-
-            if (lastRecord.size() > 0) {
-                try {
-                    String timeStr = lastRecord.get(0).toJson().getJSONObject("header").getString("creation_date_time");
-                    String elapsedTimeStr = (String) DateUtils.getRelativeTimeSpanString(ISO8601.toCalendar(timeStr).getTimeInMillis(), System.currentTimeMillis(), 0);
-
-                    getSupportActionBar().setSubtitle("Last data point: " + elapsedTimeStr);
-                } catch (Exception e) {
-                    Log.e(TAG, "", e);
-                }
-
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,26 +38,40 @@ public class MainActivity extends AppCompatActivity {
                         this.getString(R.string.dsu_client_secret),
                         this);
 
-        AutoStartUp.repeatingAutoStart(this);
-
 
     }
 
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
         // show LoginActivity if the user has not sign in
         if (!mDSUClient.isSignedIn()) {
             Intent mainActivityIntent = new Intent(MainActivity.this, LoginActivity.class);
             startActivity(mainActivityIntent);
+            finishActivity(0);
         }
-
-        // Define the code block to be executed
-
-        handler.post(runnableCode);
+        StartTracking.start(this);
+        AutoStartUp.repeatingAutoStart(this);
         // force syncing the Mobility data everytime when the user turn on the app
         mDSUClient.forceSync();
+        List<DSUDataPoint> lastRecord = DSUDataPoint.find(DSUDataPoint.class, null, null, null, "creation_date_time desc", "1");
+
+        if (lastRecord.size() > 0) {
+            String timeStr = lastRecord.get(0).getCreationDateTime();
+            try {
+
+                String elapsedTimeStr = (String) DateUtils.getRelativeTimeSpanString(ISO8601.toCalendar(timeStr).getTimeInMillis(), System.currentTimeMillis(), 0);
+                ActionBar actionBar = getSupportActionBar();
+                if (actionBar != null) {
+                    actionBar.setSubtitle("Last data point: " + elapsedTimeStr);
+                }
+            } catch (ParseException e) {
+                Log.e(TAG, "Cannot parse DateTime" + timeStr, e);
+            }
+
+        }
+
     }
 
 
@@ -113,7 +107,6 @@ public class MainActivity extends AppCompatActivity {
 
         return super.onOptionsItemSelected(item);
     }
-
 
 
 }

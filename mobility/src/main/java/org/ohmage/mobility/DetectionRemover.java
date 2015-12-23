@@ -176,7 +176,6 @@ public abstract class DetectionRemover
     protected abstract GoogleApiClient createGooglePlayServicesClient(Context context);
 
 
-
     /*
      * Implementation of OnConnectionFailedListener.onConnectionFailed
      * If a connection or disconnection request fails, report the error

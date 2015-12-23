@@ -66,10 +66,10 @@ public class LocationDetectionRequester extends DetectionRequester {
     }
 
     @Override
-    protected void requestUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
+    protected void requestUpdatesFromClient(final Context context, final GoogleApiClient client, final PendingIntent intent) {
         Log.d(ActivityUtils.APPTAG, "Starting Location: " + mIntervalMillis + ", " + mPriority);
 
-        mLocationRequest.setInterval(mIntervalMillis);
+
         mLocationRequest.setPriority(mPriority);
         mLocationRequest.setFastestInterval(1000);
         LocationServices.FusedLocationApi.requestLocationUpdates(client, mLocationRequest, intent);

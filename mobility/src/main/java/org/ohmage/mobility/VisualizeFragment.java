@@ -20,17 +20,11 @@ import io.smalldatalab.omhclient.DSUAuth;
 public class VisualizeFragment extends Fragment {
 
     private WebView webview;
-
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
      * fragment (e.g. upon screen orientation changes).
      */
     public VisualizeFragment() {
-    }
-
-    public static VisualizeFragment newInstance() {
-        VisualizeFragment fragment = new VisualizeFragment();
-        return fragment;
     }
 
     @Override
@@ -52,9 +46,14 @@ public class VisualizeFragment extends Fragment {
                 return false; // then it is not handled by default action
             }
         });
-        new AuthAndLoadUrlTask().execute();
 
         return view;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        new AuthAndLoadUrlTask().execute();
     }
 
     private class AuthAndLoadUrlTask extends AsyncTask<Void, Void, String> {
@@ -65,12 +64,11 @@ public class VisualizeFragment extends Fragment {
                 AccountManager accountManager = (AccountManager) getActivity().getSystemService(Context.ACCOUNT_SERVICE);
 
                 token = accountManager.blockingGetAuthToken(DSUAuth.getDefaultAccount(getActivity()), DSUAuth.ACCESS_TOKEN_TYPE, true);
-            } catch (Exception ex){
+            } catch (Exception ex) {
                 ex.printStackTrace();
             }
             return token;
         }
-
         @Override
         protected void onPostExecute(String token) {
             webview.loadUrl("http://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token);

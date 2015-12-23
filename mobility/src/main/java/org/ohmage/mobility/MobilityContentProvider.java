@@ -17,70 +17,8 @@ public class MobilityContentProvider extends ContentProvider {
     private static final Uri BASE_CONTENT_URI = Uri.parse("content://" + CONTENT_AUTHORITY);
 
     private static final long MAX_POINTS = 50;
-
-    public static class ActivityPoint {
-        public static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon().appendPath("activity")
-                .build();
-
-        public static final String CONTENT_ITEM_TYPE =
-                "vnd.android.cursor.item/vnd.ohmage.mobility.activity";
-
-        public static final String DATA = "data";
-    }
-
-    public static class LocationPoint {
-        public static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon().appendPath("location")
-                .build();
-
-        public static final String CONTENT_ITEM_TYPE =
-                "vnd.android.cursor.item/vnd.ohmage.mobility.location";
-
-        public static final String DATA = "data";
-    }
-
-    public static class MobilityDbHelper extends SQLiteOpenHelper {
-
-        private static final String DB_NAME = "mobility.db";
-
-        private static final int DB_VERSION = 2;
-
-        public interface Tables {
-            static final String Activity = "activity";
-            static final String Location = "location";
-        }
-
-        public MobilityDbHelper(Context context) {
-            super(context, DB_NAME, null, DB_VERSION);
-        }
-
-        @Override
-        public void onCreate(SQLiteDatabase db) {
-            db.execSQL("CREATE TABLE IF NOT EXISTS " + Tables.Activity + " ("
-                    + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-                    + ActivityPoint.DATA + " TEXT NOT NULL);");
-
-            db.execSQL("CREATE TABLE IF NOT EXISTS " + Tables.Location + " ("
-                    + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-                    + ActivityPoint.DATA + " TEXT NOT NULL);");
-        }
-
-        @Override
-        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            db.execSQL("DROP TABLE IF EXISTS " + Tables.Activity);
-            db.execSQL("DROP TABLE IF EXISTS " + Tables.Location);
-            onCreate(db);
-        }
-    }
-
-    private MobilityDbHelper dbHelper;
-
-    // enum of the URIs we can match using sUriMatcher
-    private interface MatcherTypes {
-        int ACTIVITY = 0;
-        int LOCATION = 1;
-    }
-
     private static UriMatcher sUriMatcher;
+    private MobilityDbHelper dbHelper;
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
@@ -163,5 +101,65 @@ public class MobilityContentProvider extends ContentProvider {
     public int update(Uri uri, ContentValues values, String selection,
                       String[] selectionArgs) {
         throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    // enum of the URIs we can match using sUriMatcher
+    private interface MatcherTypes {
+        int ACTIVITY = 0;
+        int LOCATION = 1;
+    }
+
+    public static class ActivityPoint {
+        public static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon().appendPath("activity")
+                .build();
+
+        public static final String CONTENT_ITEM_TYPE =
+                "vnd.android.cursor.item/vnd.ohmage.mobility.activity";
+
+        public static final String DATA = "data";
+    }
+
+    public static class LocationPoint {
+        public static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon().appendPath("location")
+                .build();
+
+        public static final String CONTENT_ITEM_TYPE =
+                "vnd.android.cursor.item/vnd.ohmage.mobility.location";
+
+        public static final String DATA = "data";
+    }
+
+    public static class MobilityDbHelper extends SQLiteOpenHelper {
+
+        private static final String DB_NAME = "mobility.db";
+
+        private static final int DB_VERSION = 2;
+
+        public MobilityDbHelper(Context context) {
+            super(context, DB_NAME, null, DB_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + Tables.Activity + " ("
+                    + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    + ActivityPoint.DATA + " TEXT NOT NULL);");
+
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + Tables.Location + " ("
+                    + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    + ActivityPoint.DATA + " TEXT NOT NULL);");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS " + Tables.Activity);
+            db.execSQL("DROP TABLE IF EXISTS " + Tables.Location);
+            onCreate(db);
+        }
+
+        public interface Tables {
+            static final String Activity = "activity";
+            static final String Location = "location";
+        }
     }
 }

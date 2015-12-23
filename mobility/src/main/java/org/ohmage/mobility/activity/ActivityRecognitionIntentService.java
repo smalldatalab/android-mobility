@@ -17,20 +17,18 @@
 package org.ohmage.mobility.activity;
 
 import android.app.IntentService;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.util.Log;
 
 import com.google.android.gms.location.ActivityRecognitionResult;
 import com.google.android.gms.location.DetectedActivity;
 
-import org.joda.time.DateTime;
-import org.joda.time.LocalDateTime;
-import org.joda.time.format.DateTimeFormat;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.ohmage.mobility.MobilityContentProvider;
 import org.ohmage.mobility.R;
+
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 import io.smalldatalab.omhclient.DSUDataPoint;
 import io.smalldatalab.omhclient.DSUDataPointBuilder;
@@ -94,13 +92,15 @@ public class ActivityRecognitionIntentService extends IntentService {
                 }
                 JSONObject body = new JSONObject();
                 body.put("activities", json);
+                Calendar cal = GregorianCalendar.getInstance();
+                cal.setTimeInMillis(result.getTime());
                 DSUDataPoint datapoint = new DSUDataPointBuilder()
                         .setSchemaNamespace(getString(R.string.schema_namespace))
                         .setSchemaName(getString(R.string.activity_schema_name))
                         .setSchemaVersion(getString(R.string.schema_version))
                         .setAcquisitionModality(getString(R.string.acquisition_modality))
                         .setAcquisitionSource(getString(R.string.acquisition_source_name))
-                        .setCreationDateTime(new DateTime(result.getTime()))
+                        .setCreationDateTime(cal)
                         .setBody(body).createDSUDataPoint();
                 datapoint.save();
             } catch (Exception e) {
@@ -119,11 +119,9 @@ public class ActivityRecognitionIntentService extends IntentService {
      */
     private void logActivityRecognitionResult(ActivityRecognitionResult result) {
 
-        StringBuilder msg = new StringBuilder(DateTimeFormat.mediumDateTime()
-                .print(new LocalDateTime()));
 
         // Get all the probably activities from the updated result
-        for (DetectedActivity detectedActivity : result.getProbableActivities()) {
+       /* for (DetectedActivity detectedActivity : result.getProbableActivities()) {
 
             // Get the activity type, confidence level, and human-readable name
             int activityType = detectedActivity.getType();
@@ -134,7 +132,7 @@ public class ActivityRecognitionIntentService extends IntentService {
 
         ContentValues values = new ContentValues();
         values.put(MobilityContentProvider.ActivityPoint.DATA, msg.toString());
-        getContentResolver().insert(MobilityContentProvider.ActivityPoint.CONTENT_URI, values);
+        getContentResolver().insert(MobilityContentProvider.ActivityPoint.CONTENT_URI, values);*/
     }
 
     /**

@@ -17,19 +17,17 @@
 package org.ohmage.mobility.location;
 
 import android.app.IntentService;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.location.Location;
 
 import com.google.android.gms.location.LocationResult;
 
-import org.joda.time.DateTime;
-import org.joda.time.LocalDateTime;
-import org.joda.time.format.DateTimeFormat;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.ohmage.mobility.MobilityContentProvider;
 import org.ohmage.mobility.R;
+
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 import io.smalldatalab.omhclient.DSUDataPoint;
 import io.smalldatalab.omhclient.DSUDataPointBuilder;
@@ -52,7 +50,6 @@ public class LocationListenerIntentService extends IntentService {
      */
     @Override
     protected void onHandleIntent(Intent intent) {
-
 
 
         // If the intent contains an update
@@ -81,14 +78,15 @@ public class LocationListenerIntentService extends IntentService {
                     body.put("speed", location.getSpeed());
                     body.put("timestamp", location.getTime());
 
-
+                    Calendar cal = GregorianCalendar.getInstance();
+                    cal.setTimeInMillis(location.getTime());
                     DSUDataPoint datapoint = new DSUDataPointBuilder()
                             .setSchemaNamespace(getString(R.string.schema_namespace))
                             .setSchemaName(getString(R.string.location_schema_name))
                             .setSchemaVersion(getString(R.string.schema_version))
                             .setAcquisitionModality(getString(R.string.acquisition_modality))
                             .setAcquisitionSource(getString(R.string.acquisition_source_name))
-                            .setCreationDateTime(new DateTime(location.getTime()))
+                            .setCreationDateTime(cal)
                             .setBody(body).createDSUDataPoint();
                     datapoint.save();
                 } catch (JSONException e) {
@@ -108,15 +106,15 @@ public class LocationListenerIntentService extends IntentService {
      * @param result The result extracted from the incoming Intent
      */
     private void logLocationResult(LocationResult result) {
-
+/*
         StringBuilder msg = new StringBuilder(DateTimeFormat.mediumDateTime()
                 .print(new LocalDateTime())).append("|");
-        for (Location location : result.getLocations()) {
+        for(Location location: result.getLocations()) {
             msg.append(location.getLatitude()).append(", ").append(location.getLongitude());
         }
 
         ContentValues values = new ContentValues();
         values.put(MobilityContentProvider.LocationPoint.DATA, msg.toString());
-        getContentResolver().insert(MobilityContentProvider.LocationPoint.CONTENT_URI, values);
+        getContentResolver().insert(MobilityContentProvider.LocationPoint.CONTENT_URI, values);*/
     }
 }

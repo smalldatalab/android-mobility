@@ -153,7 +153,7 @@ public class ActivityRecognitionFragment extends Fragment implements LoaderManag
 
         Button visualizeButton = (Button) view.findViewById(R.id.visualize_button);
         // Hide if server is not default, because it doesn't work elsewhere, yet.
-        if(DSUHelper.getUrl(getActivity()).equals(getActivity().getString(R.string.dsu_client_url))){
+        if (DSUHelper.getUrl(getActivity()).equals(getActivity().getString(R.string.dsu_client_url))) {
             visualizeButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {

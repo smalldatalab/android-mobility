@@ -16,17 +16,18 @@
 
 package org.ohmage.mobility;
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.app.PendingIntent;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender.SendIntentException;
 import android.os.Bundle;
+import android.support.v4.app.DialogFragment;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
 
 /**
@@ -42,14 +43,18 @@ import com.google.android.gms.common.api.GoogleApiClient;
 public abstract class DetectionRequester
         implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
+    // Request code to use when launching the resolution activity
+    private static final int REQUEST_RESOLVE_ERROR = 1001;
+    // Unique tag for the error dialog fragment
+    private static final String DIALOG_ERROR = "dialog_error";
     // Storage for a context from the calling client
     private Context mContext;
-
     // Stores the PendingIntent used to send activity recognition events back to the app
     private PendingIntent mRequestPendingIntent;
-
     // Stores the current instantiation of the activity recognition client
     private GoogleApiClient mGooglePlayServicesClient;
+    // Bool to track whether the app is already resolving an error
+    private boolean mResolvingError = false;
 
     public DetectionRequester(Context context) {
         // Save the context
@@ -166,6 +171,7 @@ public abstract class DetectionRequester
         continueRequestUpdates();
         getGooglePlayServicesClient().disconnect();
     }
+
     @Override
     public void onConnectionSuspended(int arg) {
         Log.d(ActivityUtils.APPTAG, "Connection Suspended arg:" + arg);
@@ -207,6 +213,18 @@ public abstract class DetectionRequester
 
     }
 
+    /* Creates a dialog for an error message */
+    private void showErrorDialog(int errorCode) {
+        // Create a fragment for the error dialog
+        ErrorDialogFragment dialogFragment = new ErrorDialogFragment();
+        // Pass the error that should be displayed
+        Bundle args = new Bundle();
+        args.putInt(DIALOG_ERROR, errorCode);
+        dialogFragment.setArguments(args);
+
+        dialogFragment.show(((MainActivity) mContext).getSupportFragmentManager(), "errordialog");
+    }
+
     /*
      * Implementation of OnConnectionFailedListener.onConnectionFailed
      * If a connection or disconnection request fails, report the error
@@ -214,40 +232,49 @@ public abstract class DetectionRequester
      */
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
-        /*
-         * Google Play services can resolve some errors it detects.
-         * If the error has a resolution, try sending an Intent to
-         * start a Google Play services activity that can resolve
-         * error.
-         */
-        if (connectionResult.hasResolution()) {
 
-            try {
-                connectionResult.startResolutionForResult((Activity) mContext,
-                        ActivityUtils.CONNECTION_FAILURE_RESOLUTION_REQUEST);
+        if (mResolvingError) {
+            // Already attempting to resolve an error.
+            return;
+        } else if (connectionResult.hasResolution()) {
+            mResolvingError = true;
+            if (mContext instanceof MainActivity) {
+                try {
 
-            /*
-             * Thrown if Google Play services canceled the original
-             * PendingIntent
-             */
-            } catch (SendIntentException e) {
-                // display an error or log it here.
+                    connectionResult.startResolutionForResult((MainActivity) mContext, REQUEST_RESOLVE_ERROR);
+                } catch (SendIntentException e) {
+                    // There was an error with the resolution intent. Try again.
+                    getGooglePlayServicesClient().connect();
+                }
+            } else {
+                Notification.showResovleIssueNotification(mContext);
             }
+        } else if (mContext instanceof MainActivity) {
 
-        /*
-         * If no resolution is available, display Google
-         * Play service error dialog. This may direct the
-         * user to Google Play Store if Google Play services
-         * is out of date.
-         */
+            // Show dialog using GoogleApiAvailability.getErrorDialog()
+            showErrorDialog(connectionResult.getErrorCode());
+            mResolvingError = true;
         } else {
-            Dialog dialog = GooglePlayServicesUtil.getErrorDialog(
-                    connectionResult.getErrorCode(),
-                    (Activity) mContext,
-                    ActivityUtils.CONNECTION_FAILURE_RESOLUTION_REQUEST);
-            if (dialog != null) {
-                dialog.show();
-            }
+            Notification.showResovleIssueNotification(mContext);
+            mResolvingError = true;
+        }
+    }
+
+    /* A fragment to display an error dialog */
+    public static class ErrorDialogFragment extends DialogFragment {
+        public ErrorDialogFragment() {
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // Get the error code and retrieve the appropriate dialog
+            int errorCode = this.getArguments().getInt(DIALOG_ERROR);
+            return GoogleApiAvailability.getInstance().getErrorDialog(
+                    this.getActivity(), errorCode, REQUEST_RESOLVE_ERROR);
+        }
+
+        @Override
+        public void onDismiss(DialogInterface dialog) {
         }
     }
 }

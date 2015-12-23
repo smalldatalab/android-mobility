@@ -107,7 +107,7 @@ public class LoginActivity extends Activity {
         final String username = ((EditText) this.findViewById(R.id.username)).getText().toString();
         final String password = ((EditText) this.findViewById(R.id.password)).getText().toString();
 
-        if (username.isEmpty() || password.isEmpty()){
+        if (username.isEmpty() || password.isEmpty()) {
             showToast("You must enter a username and password.");
             return;
         }
