@@ -59,7 +59,7 @@ public class VisualizeFragment extends Fragment {
     private class AuthAndLoadUrlTask extends AsyncTask<Void, Void, String> {
         @Override
         protected String doInBackground(Void... params) {
-            String token = "";
+            String token = null;
             try {
                 AccountManager accountManager = (AccountManager) getActivity().getSystemService(Context.ACCOUNT_SERVICE);
 
@@ -71,7 +71,9 @@ public class VisualizeFragment extends Fragment {
         }
         @Override
         protected void onPostExecute(String token) {
-            webview.loadUrl("http://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token);
+            if (token != null) {
+                webview.loadUrl("http://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token);
+            }
         }
     }
 

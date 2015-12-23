@@ -24,6 +24,14 @@ public class MainActivity extends AppCompatActivity {
 
     DSUClient mDSUClient;
 
+    private void checkSignIn() {
+        // show LoginActivity if the user has not sign in
+        if (!mDSUClient.isSignedIn()) {
+            Intent mainActivityIntent = new Intent(MainActivity.this, LoginActivity.class);
+            startActivity(mainActivityIntent);
+            finishActivity(0);
+        }
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -37,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
                         this.getString(R.string.dsu_client_id),
                         this.getString(R.string.dsu_client_secret),
                         this);
-
+        checkSignIn();
 
     }
 
@@ -46,11 +54,8 @@ public class MainActivity extends AppCompatActivity {
     public void onStart() {
         super.onStart();
         // show LoginActivity if the user has not sign in
-        if (!mDSUClient.isSignedIn()) {
-            Intent mainActivityIntent = new Intent(MainActivity.this, LoginActivity.class);
-            startActivity(mainActivityIntent);
-            finishActivity(0);
-        }
+        checkSignIn();
+
         StartTracking.start(this);
         AutoStartUp.repeatingAutoStart(this);
         // force syncing the Mobility data everytime when the user turn on the app
