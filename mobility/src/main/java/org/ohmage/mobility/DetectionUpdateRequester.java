@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.ohmage.mobility.activity;
+package org.ohmage.mobility;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -23,9 +23,9 @@ import android.util.Log;
 
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.ActivityRecognition;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
 
-import org.ohmage.mobility.ActivityUtils;
-import org.ohmage.mobility.DetectionRequester;
 
 /**
  * Class for connecting to Location Services and activity recognition updates.
@@ -37,44 +37,54 @@ import org.ohmage.mobility.DetectionRequester;
  * To use a DetectionRequester, instantiate it and call requestUpdates(). Everything else is done
  * automatically.
  */
-public class ActivityDetectionRequester extends DetectionRequester {
+public class DetectionUpdateRequester extends DetectionRequester {
 
-    // Interval for listener
-    private long mIntervalMillis;
+    // Location request object to configure the location client
+    private final LocationRequest mLocationRequest;
 
-    public ActivityDetectionRequester(Context context) {
+    private final long activityIntervalMillis;
+
+    public DetectionUpdateRequester(Context context, int locationPriority, float minimumDisplacement, long fastestLocationIntervalMillis, long locationIntervalMillis, long activityIntervalMillis) {
         super(context);
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(locationIntervalMillis);
+        mLocationRequest.setPriority(locationPriority);
+        mLocationRequest.setFastestInterval(fastestLocationIntervalMillis);
+        mLocationRequest.setSmallestDisplacement(minimumDisplacement);
+        this.activityIntervalMillis = activityIntervalMillis;
     }
 
     /**
      * Start the activity recognition update request process by
      * getting a connection.
      */
-    public void requestUpdates(long intervalMillis) {
-        mIntervalMillis = intervalMillis;
+    public void requestUpdates() {
         requestConnection();
     }
 
     @Override
-    protected void requestUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
-        Log.d(ActivityUtils.APPTAG, "Starting Activity: " + mIntervalMillis);
-        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(client, mIntervalMillis, intent);
+    protected void requestUpdatesFromClient(final Context context, final GoogleApiClient client, final PendingIntent intent) {
+        // request for location updates
+        Log.d(ActivityUtils.APPTAG, mLocationRequest.toString());
+
+        LocationServices.FusedLocationApi.requestLocationUpdates(client, mLocationRequest, intent);
+
+        // request for activity updates
+        Log.d(ActivityUtils.APPTAG, "Starting Activity: " + activityIntervalMillis);
+        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(client, activityIntervalMillis, intent);
 
 
-        // Save request state
-        context.getSharedPreferences(ActivityUtils.SHARED_PREFERENCES, Context.MODE_PRIVATE).edit()
-                .putBoolean(ActivityUtils.KEY_ACTIVITY_RUNNING, true).commit();
     }
 
     @Override
     protected void removeUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
-        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(client, intent);
-
+        LocationServices.FusedLocationApi.removeLocationUpdates(client, intent);
     }
 
     @Override
     protected GoogleApiClient createGooglePlayServicesClient(Context context) {
         return new GoogleApiClient.Builder(context)
+                .addApi(LocationServices.API)
                 .addApi(ActivityRecognition.API)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
@@ -83,11 +93,6 @@ public class ActivityDetectionRequester extends DetectionRequester {
 
     @Override
     protected Intent getIntentService(Context context) {
-        return new Intent(context, ActivityRecognitionIntentService.class);
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
+        return new Intent(context, UpdateListenerIntentService.class);
     }
 }

@@ -48,17 +48,13 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-
     @Override
     public void onStart() {
         super.onStart();
         // show LoginActivity if the user has not sign in
         checkSignIn();
-
-        StartTracking.start(this);
         AutoStartUp.repeatingAutoStart(this);
-        // force syncing the Mobility data everytime when the user turn on the app
-        mDSUClient.forceSync();
+
         List<DSUDataPoint> lastRecord = DSUDataPoint.find(DSUDataPoint.class, null, null, null, "creation_date_time desc", "1");
 
         if (lastRecord.size() > 0) {
@@ -106,6 +102,9 @@ public class MainActivity extends AppCompatActivity {
             case R.id.sync_data:
                 mDSUClient.forceSync();
                 Toast.makeText(this, "Start uploading data.", Toast.LENGTH_SHORT).show();
+                return true;
+            case R.id.show_step_count_demo:
+                startActivity(new Intent(this, StepCountDemo.class));
                 return true;
         }
 

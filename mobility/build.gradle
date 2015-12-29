@@ -1,5 +1,5 @@
 apply plugin: 'android'
-
+apply plugin: 'com.google.gms.google-services'
 // Update the values in this file to sign the apk for release
 if (gradle.startParameter.taskNames.contains('assembleRelease')) {
     apply from: 'signing.gradle'
@@ -10,10 +10,10 @@ android {
         // This is needed in development for the Google maps API
         SDL {
             keyAlias 'android-key'
-            keyPassword 'pwd'
-            storeFile file('/path/to/keystore.jks')
-            storePassword 'pwd'
-        }
+            keyPassword '1qaz@WSX'
+            storeFile file('/home/changun/Dropbox/Projects/android/keystore.jks')
+            storePassword '1qaz@WSX'
+    }
     }
 
     compileSdkVersion 23
@@ -58,7 +58,7 @@ dependencies {
     compile 'com.android.support:appcompat-v7:23.1.1'
     compile 'com.android.support:support-v4:23.1.1'
 
-    compile 'com.google.android.gms:play-services:8.4.0'
+    compile 'com.google.android.gms:play-services:8.3.0'
 
     // for http client
     compile 'com.squareup.okhttp:okhttp:2.3.0'
