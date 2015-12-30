@@ -61,5 +61,6 @@
     <string name="title_activity_main2">Main2Activity</string>
     <string name="title_activity_location">LocationActivity</string>
     <string name="title_activity_step_count_demo">Step Count Demo</string>
+    <string name="visualization_loading_failed">Loading failed\nPlease check Internet connection</string>
 
 </resources>
