@@ -19,10 +19,13 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:title="@string/sync_data"
         android:id="@+id/sync_data"
-        android:orderInCategory="101" />
-
+        android:orderInCategory="101"
+        android:title="@string/sync_data" />
+    <item
+        android:id="@+id/show_step_count_demo"
+        android:orderInCategory="101"
+        android:title="@string/title_activity_step_count_demo" />
     <item
         android:id="@+id/action_sign_out"
         android:orderInCategory="101"

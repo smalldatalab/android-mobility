@@ -10,10 +10,10 @@ android {
         // This is needed in development for the Google maps API
         SDL {
             keyAlias 'android-key'
-            keyPassword '1qaz@WSX'
-            storeFile file('/home/changun/Dropbox/Projects/android/keystore.jks')
-            storePassword '1qaz@WSX'
-    }
+            keyPassword 'pwd'
+            storeFile file('/path/to/keystore.jks')
+            storePassword 'pwd'
+        }
     }
 
     compileSdkVersion 23
@@ -22,8 +22,8 @@ android {
         applicationId "io.smalldatalab.android.mobility"
         minSdkVersion 9
         targetSdkVersion 23
-        versionCode 301007
-        versionName "3.1.7"
+        versionCode 301008
+        versionName "3.1.8"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7

@@ -95,20 +95,24 @@ public class StepCountService extends Service {
     }
 
     private void handleCommand(Intent intent) {
-        long runUntil = intent.getExtras().getLong(RUN_UNTIL_PARAM);
-        baseStepCount = intent.getLongExtra(BASE_STEP_COUNT, 0);
+        if (intent.hasExtra(RUN_UNTIL_PARAM) && intent.hasExtra(BASE_STEP_COUNT)) {
+            long runUntil = intent.getLongExtra(RUN_UNTIL_PARAM, 0);
+            baseStepCount = intent.getLongExtra(BASE_STEP_COUNT, 0);
 
-        if (timer != null) {
-            timer.cancel();
-            timer.purge();
-        }
-        timer = new Timer();
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                saveCountAndEndService();
+            if (timer != null) {
+                timer.cancel();
+                timer.purge();
             }
-        }, new Date(runUntil));
+            timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    saveCountAndEndService();
+                }
+            }, new Date(runUntil));
+        } else {
+            Log.i(TAG, "Unknown intent:" + intent.toString());
+        }
     }
 
     private void saveCountAndEndService() {

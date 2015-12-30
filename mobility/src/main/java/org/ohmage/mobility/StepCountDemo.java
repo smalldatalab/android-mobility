@@ -11,6 +11,7 @@ import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.TextView;
 
 import java.text.DecimalFormat;
@@ -46,6 +47,7 @@ public class StepCountDemo extends AppCompatActivity implements TextToSpeech.OnI
         Handler handler = new Handler(mHandlerThread.getLooper());
 
         final TextView countView = (TextView) findViewById(R.id.countView);
+        final CheckBox turnOnVoiceCheckBox = (CheckBox) findViewById(R.id.turnOnVoice);
         counter = new StepCounter(this, handler) {
             @Override
             void onDetectStep(final long total) {
@@ -56,7 +58,8 @@ public class StepCountDemo extends AppCompatActivity implements TextToSpeech.OnI
                         countView.setText(new DecimalFormat("#,###").format(total - resetFromCount));
                         if (mTts != null) {
                             String text = String.valueOf(total - resetFromCount);
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                                    && turnOnVoiceCheckBox.isChecked()) {
                                 mTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, text);
                             }
                         }

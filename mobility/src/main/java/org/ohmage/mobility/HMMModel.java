@@ -4,7 +4,6 @@ import com.google.android.gms.location.ActivityRecognitionResult;
 import com.google.android.gms.location.DetectedActivity;
 
 import java.util.EnumMap;
-import java.util.Map;
 
 /**
  * Created by changun on 12/29/15.
@@ -24,16 +23,19 @@ public class HMMModel {
 
     public HMMModel() {
         mPrevProbability = initStateProbability();
+    }
 
+    public HMMModel(EnumMap<State, Double> probs) {
+        mPrevProbability = probs;
     }
 
     EnumMap<State, Double> emissionProbability(ActivityRecognitionResult act) {
         EnumMap<State, Double> map = new EnumMap<State, Double>(State.class);
-        double walking = 0, running = 0, vehicle = 0, still = 0, bicycle = 0;
+        // DO NOT ASSIGN 0. Otherwise the state will never be possible
+        double walking = 5, running = 5, vehicle = 5, still = 5, bicycle = 5, onFoot = 0;
         for (DetectedActivity activity : act.getProbableActivities()) {
             double confidence = activity.getConfidence();
             switch (activity.getType()) {
-                case DetectedActivity.ON_FOOT:
                 case DetectedActivity.WALKING:
                     walking += confidence;
                     break;
@@ -69,25 +71,25 @@ public class HMMModel {
 
     double transitionProbability(State from, State to) {
 
-        if (from == State.STILL && to == State.VEHICLE) {
-            return 0.05;
-        } else if (from == State.STILL && (to == State.WALKING || to == State.RUNNING || to == State.BICYCLE)) {
+        if (from == State.STILL && (to == State.VEHICLE || to == State.BICYCLE)) {
+            return 0.025;
+        } else if (from == State.STILL && (to == State.WALKING || to == State.RUNNING)) {
             return 0.1;
         } else if (from == State.STILL && to == State.STILL) {
-            return 0.65;
+            return 0.75;
         } else if (from == State.VEHICLE && to == State.STILL) {
-            return 0.1;
+            return 0.05;
         } else if (from == State.VEHICLE && (to == State.WALKING || to == State.RUNNING || to == State.BICYCLE)) {
             return 0.05;
         } else if (from == State.VEHICLE && to == State.VEHICLE) {
-            return 0.75;
+            return 0.80;
         } else if ((from == State.WALKING || from == State.RUNNING) && (to == State.STILL || to == State.VEHICLE || to == State.BICYCLE)) {
-            return 0.1;
+            return 0.05;
         } else if ((from == State.WALKING || from == State.RUNNING) && (to == State.WALKING || to == State.RUNNING)) {
             if (from == to) {
-                return 0.5;
+                return 0.75;
             } else {
-                return 0.2;
+                return 0.1;
             }
         } else if (from == State.BICYCLE && to == State.STILL) {
             return 0.1;
@@ -131,26 +133,18 @@ public class HMMModel {
         return mostProbState;
     }
 
+    public double getProb(State s) {
+        return mPrevProbability.get(s);
+    }
+
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<State, Double> s : mPrevProbability.entrySet()) {
-            sb.append(s.getKey().name()).append(":").append(s.getValue()).append(",");
-        }
-        ;
-        return sb.toString();
+        return "HMMModel{" +
+                "mPrevProbability=" + mPrevProbability +
+                '}';
     }
 
-    public void restore(double walking, double running, double vehicle, double still, double bicycle) {
-        EnumMap<State, Double> map = new EnumMap<State, Double>(State.class);
-        map.put(State.WALKING, walking);
-        map.put(State.STILL, still);
-        map.put(State.RUNNING, running);
-        map.put(State.BICYCLE, bicycle);
-        map.put(State.VEHICLE, vehicle);
-    }
-
-    enum State {
+    public enum State {
         WALKING, RUNNING, VEHICLE, STILL, BICYCLE
     }
 
