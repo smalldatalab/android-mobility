@@ -6,7 +6,8 @@ package org.ohmage.mobility;
 
 /**
  * Ring buffer (fixed size queue) implementation using a circular array (array
- * with wrap-around) that keep track of the sum
+ * with wrap-around) that keep track of the sum of the element in it.
+ * This is used to implement Windowed Simple Moving Average.
  */
 // suppress unchecked warnings in Java 1.5.0_6 and later
 @SuppressWarnings("unchecked")

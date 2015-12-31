@@ -6,6 +6,10 @@ import com.google.android.gms.location.DetectedActivity;
 import java.util.EnumMap;
 
 /**
+ * An HMM model determines the most probable mobility state of the user given the Android DetectedActivity results.
+ *
+ * It would smooth out the short term spurious samples that have low confidence value.
+ *
  * Created by changun on 12/29/15.
  */
 public class HMMModel {
@@ -26,16 +30,20 @@ public class HMMModel {
     }
 
     public HMMModel(EnumMap<State, Double> probs) {
+        if (probs.size() != State.values().length) {
+            throw new RuntimeException("The give probability map is incomplete:" + probs.toString());
+        }
         mPrevProbability = probs;
     }
 
     EnumMap<State, Double> emissionProbability(ActivityRecognitionResult act) {
         EnumMap<State, Double> map = new EnumMap<State, Double>(State.class);
         // DO NOT ASSIGN 0. Otherwise the state will never be possible
-        double walking = 5, running = 5, vehicle = 5, still = 5, bicycle = 5, onFoot = 0;
+        double walking = 5, running = 5, vehicle = 5, still = 5, bicycle = 5;
         for (DetectedActivity activity : act.getProbableActivities()) {
             double confidence = activity.getConfidence();
             switch (activity.getType()) {
+
                 case DetectedActivity.WALKING:
                     walking += confidence;
                     break;

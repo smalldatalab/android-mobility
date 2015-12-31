@@ -42,8 +42,11 @@ import static com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCU
 
 
 /**
- * Service that receives location updates. It receives updates
- * in the background, even if the main Activity is not visible.
+ * The central nerve of the tracking functionality. It will receives Intent for
+ * Location and Activity updates from Google Play Service, and will adjust the tracking mode
+ * (frequency, GPS or Wifi, whether to start step counting service, etc) according to a state machine.
+ *
+ * See onHandleIntent() for its main logic.
  */
 public class UpdateListenerIntentService extends IntentService {
 
@@ -53,12 +56,15 @@ public class UpdateListenerIntentService extends IntentService {
     final static String PREV_USER_STATE_PARAM = "prevUserState";
     final static String USER_STATE_SINCE_PARAM = "userStateSince";
     private static final String TAG = UpdateListenerIntentService.class.getSimpleName();
-    // The states
+
+    // The states to be preserved across different service instance.
     private HMMModel hmm;
     private HMMModel.State prevUserState;
     private long userStateSince;
     private long prevStateTime;
     private TrackingMode trackingMode;
+
+
     public UpdateListenerIntentService() {
         // Set the label for the service's background thread
         super("UpdateIntentService");
@@ -67,22 +73,30 @@ public class UpdateListenerIntentService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
+        // restore the previous states
         restoreState();
     }
-
     @Override
     public void onDestroy() {
+        // save the previous states
         saveState();
     }
 
-    public TrackingMode determineNextTrackingMode(HMMModel.State curState, long statePersistenceMillis) {
+    // state machine to determine the tracking mode
+    public TrackingMode determineNextTrackingMode(HMMModel.State curState, long statePersistenceMillis, TrackingMode prevMode) {
         if (curState == HMMModel.State.STILL) {
-            if (statePersistenceMillis > TrackingMode.START_DWELL.getPersistenceMillis()) {
+            // If the user is being still for a while OR we were previous in START_WALKING or START_VEHICLE or WALKING tracking mode, transit to DWELL mode
+            // We do so instead of transiting to START_DWELL is because we don't want the false positive walking/vehicle events or WALKING mode that is already very accurate
+            // to trigger power consuming START_DWELL mode
+            // In other word, we only trigger START_DWELL mode when the user was driving for a while and stop at a place in order to get the accurate location of that place
+            if (statePersistenceMillis > TrackingMode.START_DWELL.getPersistenceMillis()
+                    || (prevMode == TrackingMode.START_WALKING || prevMode == TrackingMode.WALKING || prevMode == TrackingMode.START_VEHICLE || prevMode == TrackingMode.DWELL)) {
                 return TrackingMode.DWELL;
             } else {
                 return TrackingMode.START_DWELL;
             }
         } else if (curState == HMMModel.State.WALKING || curState == HMMModel.State.RUNNING || curState == HMMModel.State.BICYCLE) {
+            // if the user is walking/running/bicycling, transit to walking, or start waling state if the user just starts walking
             if (statePersistenceMillis > TrackingMode.START_WALKING.getPersistenceMillis()) {
                 return TrackingMode.WALKING;
             } else {
@@ -107,15 +121,14 @@ public class UpdateListenerIntentService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         HMMModel.State userState = prevUserState;
-        // If the intent contains an update
+        // If the intent contains a location update
         if (LocationResult.hasResult(intent)) {
-
             LocationResult result = LocationResult.extractResult(intent);
             Log.v(TAG, "Location update" + result.toString());
             // Write the result to the DSU
             writeResultToDsu(result);
         }
-        // If the intent contains an update
+        // If the intent contains an activity update
         if (ActivityRecognitionResult.hasResult(intent)) {
 
             // Get the update
@@ -124,33 +137,42 @@ public class UpdateListenerIntentService extends IntentService {
             // Write the result to the DSU
             writeResultToDsu(result);
 
-            // maintain current user states
+            // ** maintain current user states ** //
+
+            // see what HMM say about the user's current state given the Activity Detected Result
             userState = hmm.push(result);
             if (BuildConfig.DEBUG) {
                 Log.v(TAG, "new state: " + userState + " Hmm prob: " + hmm.toString());
             }
+
+            // if the user state change ...
             if (userState != prevUserState) {
                 // write the prev episode
                 writeEpisodeToDsu(userStateSince, prevStateTime, prevUserState);
 
                 // transit to a new episode
                 prevUserState = userState;
+                // restart the start time of the episode
                 userStateSince = System.currentTimeMillis();
             }
 
         }
+
+
         boolean isStartUpEvent = (intent.getAction() != null && intent.getAction().equals(ACTION));
         if (isStartUpEvent) {
             Log.v(TAG, String.format("Triggered by the periodic startup event"));
 
         }
-        // update tracking request, but don't update it when it is location update intent which could occur too frequently
+
+        // update tracking mode
         if (ActivityRecognitionResult.hasResult(intent) || isStartUpEvent) {
 
-            TrackingMode nextTrackingMode = determineNextTrackingMode(userState, System.currentTimeMillis() - userStateSince);
+            TrackingMode nextTrackingMode = determineNextTrackingMode(userState, System.currentTimeMillis() - userStateSince, trackingMode);
             Log.v(TAG, String.format("userState: %s, statePersistenceTime %s, trackingMode: %s => nextMode %s", prevUserState, System.currentTimeMillis() - userStateSince, trackingMode, nextTrackingMode));
 
             // Only request tracking updates again when the tracking mode changed or it is an start up event
+            // the later is to make sure the expected tracking mode is used.
             if (trackingMode != nextTrackingMode || isStartUpEvent) {
                 DetectionUpdateRequester ld =
                         new DetectionUpdateRequester(this,
@@ -167,9 +189,9 @@ public class UpdateListenerIntentService extends IntentService {
             // start step count tracking service when the user starts and continues walking
             if (userState == HMMModel.State.RUNNING || userState == HMMModel.State.WALKING) {
                 Intent stepCountIntent = new Intent(this, StepCountService.class);
+                // let step counting persist for 30 seconds
                 stepCountIntent.putExtra(StepCountService.RUN_UNTIL_PARAM, System.currentTimeMillis() + (30 * 1000));
-                stepCountIntent.putExtra(StepCountService.BASE_STEP_COUNT, (long) 20);
-
+                // see StepCountService.startCommand()
                 startService(stepCountIntent);
             }
 
@@ -181,6 +203,9 @@ public class UpdateListenerIntentService extends IntentService {
         SharedPreferences trackingState = getSharedPreferences(UpdateListenerIntentService.class.getName(), 0);
         prevStateTime = trackingState.getLong(STATE_TIME_PARAM, -1);
         if (System.currentTimeMillis() - prevStateTime > 90 * 1000) {
+            // ** The stored state is too far ago. Save the previous episode, and reset the states. **//
+
+            // try to save state
             String prevStateString = trackingState.getString(PREV_USER_STATE_PARAM, null);
             if (prevStateString != null) {
                 prevUserState = HMMModel.State.valueOf(prevStateString);
@@ -188,10 +213,12 @@ public class UpdateListenerIntentService extends IntentService {
                 prevUserState = null;
             }
             userStateSince = trackingState.getLong(USER_STATE_SINCE_PARAM, -1);
-            // persist the prev episode
+
+            // persist the prev episode if it is valid
             if (prevStateTime != -1 && prevUserState != null && userStateSince != -1) {
                 writeEpisodeToDsu(userStateSince, prevStateTime, prevUserState);
             }
+
             // wipe the prev state
             Log.v(TAG, "State was saved too long ago. Restart the state");
             trackingState.edit().clear().apply();
@@ -213,8 +240,10 @@ public class UpdateListenerIntentService extends IntentService {
             }
         }
         if (complete) {
+            // we can restore the HMM state completely
             hmm = new HMMModel(probs);
         } else {
+            // otherwise start from default init state
             hmm = new HMMModel();
         }
         if (BuildConfig.DEBUG) {
@@ -329,7 +358,7 @@ public class UpdateListenerIntentService extends IntentService {
             DSUDataPoint datapoint = new DSUDataPointBuilder()
                     .setSchemaNamespace(getString(R.string.schema_namespace))
                     .setSchemaName(getString(R.string.episode_schema_name))
-                    .setSchemaVersion(getString(R.string.new_schema_version))
+                    .setSchemaVersion(getString(R.string.schema_version))
                     .setAcquisitionModality(getString(R.string.acquisition_modality))
                     .setAcquisitionSource(getString(R.string.acquisition_source_name))
                     .setCreationDateTime(cal)
@@ -383,11 +412,17 @@ public class UpdateListenerIntentService extends IntentService {
 
 
     enum TrackingMode {
+        // low power mode when user dwell at a place
         DWELL(-1, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 60 * 1000, 20 * 1000),
+        // high power mode when user is walking
         WALKING(-1, PRIORITY_HIGH_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
+        // low power for in_vehicle
         VEHICLE(-1, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 60 * 1000, 20 * 1000),
+        // high power mode when the user start to dwell at a place
         START_DWELL(60 * 1000, PRIORITY_HIGH_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
+        // low power when user start walking. it is to prevent false positives walking detection from draining battery.
         START_WALKING(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
+        // low power for in_hehicle
         START_VEHICLE(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000);
 
         final int persistenceMillis, locationPriority, minimumDisplacement, fastestLocationIntervalMillis, locationIntervalMillis, activityIntervalMillis;

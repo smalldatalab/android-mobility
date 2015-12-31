@@ -3,24 +3,29 @@ package org.ohmage.mobility;
 import java.util.Arrays;
 
 /**
+ * A streaming windowed peak detector with peak magnitude and variance thresholds
  * Created by changun on 12/28/15.
  */
 public class PeakDetector {
     final Float peakPrevValues[] = new Float[3];
     final double magnitudeThreshold;
     final double varianceThreshold;
+    final int minVarianceSampleNumber;
 
+    double maxiumn = -1;
     double sum = 0;
     double sumOfSquare = 0;
     long count = 0;
     long peakWindowStart = -1;
+
     boolean magnitudeExceeded = false;
     boolean varianceExceeded = false;
 
 
-    public PeakDetector(double magnitudeThreshold, double varianceThreshold) {
+    public PeakDetector(double magnitudeThreshold, int minVarianceSampleNumber, double varianceThreshold) {
         this.magnitudeThreshold = magnitudeThreshold;
         this.varianceThreshold = varianceThreshold;
+        this.minVarianceSampleNumber = minVarianceSampleNumber;
     }
 
     public void start(long startTime) {
@@ -38,6 +43,7 @@ public class PeakDetector {
         sum = 0;
         sumOfSquare = 0;
         count = 0;
+        maxiumn = -1;
     }
 
     public void restart(long startTime) {
@@ -81,11 +87,13 @@ public class PeakDetector {
             sum += val;
             sumOfSquare += val * val;
             count++;
-            double variance = ((count * sumOfSquare) - (sum * sum)) / (count * count);
-            if (variance > varianceThreshold) {
-                varianceExceeded = true;
-            }
+            if (count >= minVarianceSampleNumber) {
 
+                double variance = ((count * sumOfSquare) - (sum * sum)) / (count * count);
+                if (variance > varianceThreshold) {
+                    varianceExceeded = true;
+                }
+            }
         }
 
         return magnitudeExceeded && varianceExceeded;

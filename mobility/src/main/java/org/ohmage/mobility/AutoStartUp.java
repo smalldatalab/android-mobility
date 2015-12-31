@@ -9,8 +9,9 @@ import android.os.SystemClock;
 import android.util.Log;
 
 /**
- * Start detection when the phone boots up if it was running
- */
+ * Start detection when the phone boots up, battery connected or
+ * disconnected so that the tracking will keep running */
+
 public class AutoStartUp extends BroadcastReceiver {
     public static void repeatingAutoStart(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
