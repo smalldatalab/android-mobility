@@ -122,7 +122,7 @@ public class VisualizeFragment extends Fragment {
         @Override
         protected void onPostExecute(String token) {
             if (token != null) {
-                webview.loadUrl("http://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token);
+                webview.loadUrl("https://ohmage-omh.smalldata.io/mobility-ui/#access_token=" + token);
             }
         }
     }
