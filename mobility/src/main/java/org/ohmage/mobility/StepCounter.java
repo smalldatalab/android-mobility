@@ -34,7 +34,7 @@ public abstract class StepCounter implements SensorEventListener {
     final Sensor mAccelerometer;
 
     // peak detector with magnitude and variance threshold
-    PeakDetector peakDetector = new PeakDetector(10.5, 15, 0.36);
+    PeakDetector peakDetector = new PeakDetector(10.5, 5, 0.36);
 
     // ring buffer that maintain the sum of elements
     SumRingBuffer<TimeValue> buffer = new SumRingBuffer<TimeValue>(400) {

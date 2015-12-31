@@ -55,6 +55,9 @@ public class UpdateListenerIntentService extends IntentService {
     final static String TRACKING_MODE_PARAM = "trackingMode";
     final static String PREV_USER_STATE_PARAM = "prevUserState";
     final static String USER_STATE_SINCE_PARAM = "userStateSince";
+
+    // assume the previous state is outdated when it is more than 4-minute old.
+    final static int STATE_EXPIRATION_TIME_MILLIS = 240 * 1000;
     private static final String TAG = UpdateListenerIntentService.class.getSimpleName();
 
     // The states to be preserved across different service instance.
@@ -202,10 +205,10 @@ public class UpdateListenerIntentService extends IntentService {
     public void restoreState() {
         SharedPreferences trackingState = getSharedPreferences(UpdateListenerIntentService.class.getName(), 0);
         prevStateTime = trackingState.getLong(STATE_TIME_PARAM, -1);
-        if (System.currentTimeMillis() - prevStateTime > 90 * 1000) {
+        if (System.currentTimeMillis() - prevStateTime > STATE_EXPIRATION_TIME_MILLIS) {
             // ** The stored state is too far ago. Save the previous episode, and reset the states. **//
 
-            // try to save state
+            // try to commit the prev episode
             String prevStateString = trackingState.getString(PREV_USER_STATE_PARAM, null);
             if (prevStateString != null) {
                 prevUserState = HMMModel.State.valueOf(prevStateString);
@@ -225,7 +228,8 @@ public class UpdateListenerIntentService extends IntentService {
             prevStateTime = System.currentTimeMillis();
 
         }
-        trackingMode = TrackingMode.valueOf(trackingState.getString(TRACKING_MODE_PARAM, TrackingMode.START_DWELL.name()));
+
+        trackingMode = TrackingMode.valueOf(trackingState.getString(TRACKING_MODE_PARAM, TrackingMode.DWELL.name()));
         prevUserState = HMMModel.State.valueOf(trackingState.getString(PREV_USER_STATE_PARAM, HMMModel.State.STILL.name()));
         userStateSince = trackingState.getLong(USER_STATE_SINCE_PARAM, System.currentTimeMillis());
         boolean complete = true;
@@ -415,15 +419,15 @@ public class UpdateListenerIntentService extends IntentService {
         // low power mode when user dwell at a place
         DWELL(-1, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 60 * 1000, 20 * 1000),
         // high power mode when user is walking
-        WALKING(-1, PRIORITY_HIGH_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
+        WALKING(-1, PRIORITY_HIGH_ACCURACY, 0, 1000, 20 * 1000, 10 * 1000),
         // low power for in_vehicle
         VEHICLE(-1, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 60 * 1000, 20 * 1000),
         // high power mode when the user start to dwell at a place
-        START_DWELL(60 * 1000, PRIORITY_HIGH_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
+        START_DWELL(60 * 1000, PRIORITY_HIGH_ACCURACY, 0, 1000, 20 * 1000, 10 * 1000),
         // low power when user start walking. it is to prevent false positives walking detection from draining battery.
         START_WALKING(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
         // low power for in_hehicle
-        START_VEHICLE(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000);
+        START_VEHICLE(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 30 * 1000, 10 * 1000);
 
         final int persistenceMillis, locationPriority, minimumDisplacement, fastestLocationIntervalMillis, locationIntervalMillis, activityIntervalMillis;
 
