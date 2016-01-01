@@ -22,8 +22,10 @@ import android.content.SharedPreferences;
 import android.location.Location;
 import android.util.Log;
 
+import com.crashlytics.android.Crashlytics;
 import com.google.android.gms.location.ActivityRecognitionResult;
 import com.google.android.gms.location.DetectedActivity;
+import com.google.android.gms.location.LocationAvailability;
 import com.google.android.gms.location.LocationResult;
 
 import org.json.JSONArray;
@@ -55,6 +57,7 @@ public class UpdateListenerIntentService extends IntentService {
     final static String TRACKING_MODE_PARAM = "trackingMode";
     final static String PREV_USER_STATE_PARAM = "prevUserState";
     final static String USER_STATE_SINCE_PARAM = "userStateSince";
+    final static String LOCATION_AVAILABILITY = "locationAvailable";
 
     // assume the previous state is outdated when it is more than 4-minute old.
     final static int STATE_EXPIRATION_TIME_MILLIS = 240 * 1000;
@@ -66,6 +69,7 @@ public class UpdateListenerIntentService extends IntentService {
     private long userStateSince;
     private long prevStateTime;
     private TrackingMode trackingMode;
+    private boolean locationAvailable;
 
 
     public UpdateListenerIntentService() {
@@ -86,21 +90,27 @@ public class UpdateListenerIntentService extends IntentService {
     }
 
     // state machine to determine the tracking mode
-    public TrackingMode determineNextTrackingMode(HMMModel.State curState, long statePersistenceMillis, TrackingMode prevMode) {
+    public TrackingMode determineNextTrackingMode(HMMModel.State curState, long statePersistenceMillis, TrackingMode prevMode, boolean locationAvailable) {
         if (curState == HMMModel.State.STILL) {
             // If the user is being still for a while OR we were previous in START_WALKING or START_VEHICLE or WALKING tracking mode, transit to DWELL mode
             // We do so instead of transiting to START_DWELL is because we don't want the false positive walking/vehicle events or WALKING mode that is already very accurate
             // to trigger power consuming START_DWELL mode
             // In other word, we only trigger START_DWELL mode when the user was driving for a while and stop at a place in order to get the accurate location of that place
             if (statePersistenceMillis > TrackingMode.START_DWELL.getPersistenceMillis()
-                    || (prevMode == TrackingMode.START_WALKING || prevMode == TrackingMode.WALKING || prevMode == TrackingMode.START_VEHICLE || prevMode == TrackingMode.DWELL)) {
+                    || locationAvailable // transit to low power DWELL mode directly when the accurate location is available
+                    || prevMode == TrackingMode.START_WALKING
+                    || prevMode == TrackingMode.WALKING
+                    || prevMode == TrackingMode.START_VEHICLE
+                    || prevMode == TrackingMode.DWELL) {
                 return TrackingMode.DWELL;
             } else {
                 return TrackingMode.START_DWELL;
             }
         } else if (curState == HMMModel.State.WALKING || curState == HMMModel.State.RUNNING || curState == HMMModel.State.BICYCLE) {
-            // if the user is walking/running/bicycling, transit to walking, or start waling state if the user just starts walking
-            if (statePersistenceMillis > TrackingMode.START_WALKING.getPersistenceMillis()) {
+            // if the user is walking/running/bicycling, transit to walking, or start waling mode
+            if (prevMode == TrackingMode.WALKING
+                    // only transit to high power WALKING mode when the user walked more than 1 min AND accurate location is NOT available
+                    || (statePersistenceMillis > TrackingMode.START_WALKING.getPersistenceMillis() && !locationAvailable)) {
                 return TrackingMode.WALKING;
             } else {
                 return TrackingMode.START_WALKING;
@@ -115,7 +125,6 @@ public class UpdateListenerIntentService extends IntentService {
 
         }
         throw new RuntimeException("Incomplete tracking mode decision");
-
     }
 
     /**
@@ -130,6 +139,32 @@ public class UpdateListenerIntentService extends IntentService {
             Log.v(TAG, "Location update" + result.toString());
             // Write the result to the DSU
             writeResultToDsu(result);
+            float mostAccurate = Float.MAX_VALUE;
+            for (Location loc : result.getLocations()) {
+                if (loc.getAccuracy() < mostAccurate) {
+                    mostAccurate = loc.getAccuracy();
+                }
+            }
+            // check most accurate location
+            if (mostAccurate > 50.0) {
+                // location sample is too inaccurate. Treat the current situation as location not available
+                if (locationAvailable) {
+                    Log.v(TAG, String.format("Location samples are too inaccurate (%s>50). Assume location not available.", mostAccurate));
+                    // location availability changed. Save state.
+                    locationAvailable = false;
+                    saveState();
+                }
+            }
+        }
+        if (LocationAvailability.hasLocationAvailability(intent)) {
+            LocationAvailability avail = LocationAvailability.extractLocationAvailability(intent);
+            if (locationAvailable != avail.isLocationAvailable()) {
+                // location availability changed. Save state.
+
+                locationAvailable = avail.isLocationAvailable();
+                Log.v(TAG, String.format("LocationAvailable=%s.", locationAvailable));
+                saveState();
+            }
         }
         // If the intent contains an activity update
         if (ActivityRecognitionResult.hasResult(intent)) {
@@ -171,8 +206,8 @@ public class UpdateListenerIntentService extends IntentService {
         // update tracking mode
         if (ActivityRecognitionResult.hasResult(intent) || isStartUpEvent) {
 
-            TrackingMode nextTrackingMode = determineNextTrackingMode(userState, System.currentTimeMillis() - userStateSince, trackingMode);
-            Log.v(TAG, String.format("userState: %s, statePersistenceTime %s, trackingMode: %s => nextMode %s", prevUserState, System.currentTimeMillis() - userStateSince, trackingMode, nextTrackingMode));
+            TrackingMode nextTrackingMode = determineNextTrackingMode(userState, System.currentTimeMillis() - userStateSince, trackingMode, locationAvailable);
+            Log.v(TAG, String.format("userState: %s, statePersistenceTime %s, locationAvailable %s, trackingMode: %s => nextMode %s", prevUserState, System.currentTimeMillis() - userStateSince, locationAvailable, trackingMode, nextTrackingMode));
 
             // Only request tracking updates again when the tracking mode changed or it is an start up event
             // the later is to make sure the expected tracking mode is used.
@@ -203,55 +238,70 @@ public class UpdateListenerIntentService extends IntentService {
     }
 
     public void restoreState() {
-        SharedPreferences trackingState = getSharedPreferences(UpdateListenerIntentService.class.getName(), 0);
-        prevStateTime = trackingState.getLong(STATE_TIME_PARAM, -1);
-        if (System.currentTimeMillis() - prevStateTime > STATE_EXPIRATION_TIME_MILLIS) {
-            // ** The stored state is too far ago. Save the previous episode, and reset the states. **//
+        try {
+            SharedPreferences trackingState = getSharedPreferences(UpdateListenerIntentService.class.getName(), 0);
+            prevStateTime = trackingState.getLong(STATE_TIME_PARAM, -1);
+            if (System.currentTimeMillis() - prevStateTime > STATE_EXPIRATION_TIME_MILLIS) {
+                // ** The stored state is too far ago. Save the previous episode, and reset the states. **//
 
-            // try to commit the prev episode
-            String prevStateString = trackingState.getString(PREV_USER_STATE_PARAM, null);
-            if (prevStateString != null) {
-                prevUserState = HMMModel.State.valueOf(prevStateString);
+                // try to commit the prev episode
+                String prevStateString = trackingState.getString(PREV_USER_STATE_PARAM, null);
+                if (prevStateString != null) {
+                    prevUserState = HMMModel.State.valueOf(prevStateString);
+                } else {
+                    prevUserState = null;
+                }
+                userStateSince = trackingState.getLong(USER_STATE_SINCE_PARAM, -1);
+
+                // persist the prev episode if it is valid
+                if (prevStateTime != -1 && prevUserState != null && userStateSince != -1) {
+                    writeEpisodeToDsu(userStateSince, prevStateTime, prevUserState);
+                }
+
+                // wipe the prev state
+                Log.v(TAG, "State was saved too long ago. Restart the state");
+                trackingState.edit().clear().apply();
+                prevStateTime = System.currentTimeMillis();
+
+            }
+
+            trackingMode = TrackingMode.valueOf(trackingState.getString(TRACKING_MODE_PARAM, TrackingMode.DWELL.name()));
+            prevUserState = HMMModel.State.valueOf(trackingState.getString(PREV_USER_STATE_PARAM, HMMModel.State.STILL.name()));
+            userStateSince = trackingState.getLong(USER_STATE_SINCE_PARAM, System.currentTimeMillis());
+            locationAvailable = trackingState.getBoolean(LOCATION_AVAILABILITY, false);
+            boolean complete = true;
+            EnumMap<HMMModel.State, Double> probs = new EnumMap<>(HMMModel.State.class);
+            for (HMMModel.State s : HMMModel.State.values()) {
+                float val = trackingState.getFloat(s.name(), -1);
+                if (val == -1) {
+                    complete = false;
+                    break;
+                } else {
+                    probs.put(s, (double) val);
+                }
+            }
+            if (complete) {
+                // we can restore the HMM state completely
+                hmm = new HMMModel(probs);
             } else {
-                prevUserState = null;
+                // otherwise start from default init state
+                hmm = new HMMModel();
             }
-            userStateSince = trackingState.getLong(USER_STATE_SINCE_PARAM, -1);
-
-            // persist the prev episode if it is valid
-            if (prevStateTime != -1 && prevUserState != null && userStateSince != -1) {
-                writeEpisodeToDsu(userStateSince, prevStateTime, prevUserState);
+            if (BuildConfig.DEBUG) {
+                Log.v(TAG, "Restore states:" + toString());
             }
+        } catch (Exception e) {
+            /* something went wrong when restoring the state. */
 
-            // wipe the prev state
-            Log.v(TAG, "State was saved too long ago. Restart the state");
-            trackingState.edit().clear().apply();
+            // report exception
+            Crashlytics.logException(e);
+
+            // restore to the defaults
+            trackingMode = TrackingMode.DWELL;
+            prevUserState = HMMModel.State.STILL;
+            userStateSince = System.currentTimeMillis();
+            locationAvailable = false;
             prevStateTime = System.currentTimeMillis();
-
-        }
-
-        trackingMode = TrackingMode.valueOf(trackingState.getString(TRACKING_MODE_PARAM, TrackingMode.DWELL.name()));
-        prevUserState = HMMModel.State.valueOf(trackingState.getString(PREV_USER_STATE_PARAM, HMMModel.State.STILL.name()));
-        userStateSince = trackingState.getLong(USER_STATE_SINCE_PARAM, System.currentTimeMillis());
-        boolean complete = true;
-        EnumMap<HMMModel.State, Double> probs = new EnumMap<>(HMMModel.State.class);
-        for (HMMModel.State s : HMMModel.State.values()) {
-            float val = trackingState.getFloat(s.name(), -1);
-            if (val == -1) {
-                complete = false;
-                break;
-            } else {
-                probs.put(s, (double) val);
-            }
-        }
-        if (complete) {
-            // we can restore the HMM state completely
-            hmm = new HMMModel(probs);
-        } else {
-            // otherwise start from default init state
-            hmm = new HMMModel();
-        }
-        if (BuildConfig.DEBUG) {
-            Log.v(TAG, "Restore states:" + toString());
         }
     }
 
@@ -263,7 +313,9 @@ public class UpdateListenerIntentService extends IntentService {
                         .putLong(USER_STATE_SINCE_PARAM, userStateSince)
                         .putString(TRACKING_MODE_PARAM, trackingMode.name())
                         .putString(PREV_USER_STATE_PARAM, prevUserState.name())
-                        .putLong(STATE_TIME_PARAM, System.currentTimeMillis());
+                        .putLong(STATE_TIME_PARAM, System.currentTimeMillis())
+                        .putBoolean(LOCATION_AVAILABILITY, locationAvailable);
+
         for (HMMModel.State s : HMMModel.State.values()) {
             editor.putFloat(s.name(), (float) hmm.getProb(s));
         }
@@ -307,7 +359,8 @@ public class UpdateListenerIntentService extends IntentService {
                         .setBody(body).createDSUDataPoint();
                 datapoint.save();
             } catch (Exception e) {
-                Log.e(this.getClass().getSimpleName(), "Create datapoint failed", e);
+                Crashlytics.logException(e);
+                Log.e(TAG, "Create datapoint failed", e);
             }
 
         }
@@ -340,7 +393,8 @@ public class UpdateListenerIntentService extends IntentService {
                             .setBody(body).createDSUDataPoint();
                     datapoint.save();
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    Crashlytics.logException(e);
+                    Log.e(TAG, "Create datapoint failed", e);
                 }
 
 
@@ -371,6 +425,8 @@ public class UpdateListenerIntentService extends IntentService {
             Log.v(TAG, "Write Episode:" + datapoint.toString());
 
         } catch (JSONException e) {
+            Crashlytics.logException(e);
+            Log.e(TAG, "Create datapoint failed", e);
             Log.e(TAG, "Write episode error: " + start + " " + end + " " + state.name(), e);
         }
 
@@ -411,6 +467,7 @@ public class UpdateListenerIntentService extends IntentService {
                 ", prevUserState=" + prevUserState +
                 ", userStateSince=" + userStateSince +
                 ", trackingMode=" + trackingMode +
+                ", locationAvailable=" + locationAvailable +
                 '}';
     }
 
@@ -426,7 +483,7 @@ public class UpdateListenerIntentService extends IntentService {
         START_DWELL(60 * 1000, PRIORITY_HIGH_ACCURACY, 0, 1000, 20 * 1000, 10 * 1000),
         // low power when user start walking. it is to prevent false positives walking detection from draining battery.
         START_WALKING(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 10 * 1000, 10 * 1000),
-        // low power for in_hehicle
+        // low power for in_vehicle
         START_VEHICLE(60 * 1000, PRIORITY_BALANCED_POWER_ACCURACY, 0, 10 * 1000, 30 * 1000, 10 * 1000);
 
         final int persistenceMillis, locationPriority, minimumDisplacement, fastestLocationIntervalMillis, locationIntervalMillis, activityIntervalMillis;
