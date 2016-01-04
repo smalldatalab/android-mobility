@@ -56,6 +56,10 @@ public class HMMModel {
                 case DetectedActivity.STILL:
                     still += confidence;
                     break;
+                case DetectedActivity.IN_VEHICLE:
+                    vehicle += confidence;
+                    break;
+
                 case DetectedActivity.TILTING:
                     double portion = confidence / 9;
                     double twoPortions = portion + portion;

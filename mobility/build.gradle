@@ -31,14 +31,15 @@ android {
         }
     }
 
+
     compileSdkVersion 23
     buildToolsVersion "23.0.2"
     defaultConfig {
         applicationId "io.smalldatalab.android.mobility"
         minSdkVersion 9
         targetSdkVersion 23
-        versionCode 301013
-        versionName "3.1.13"
+        versionCode 301015
+        versionName "3.1.15"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
