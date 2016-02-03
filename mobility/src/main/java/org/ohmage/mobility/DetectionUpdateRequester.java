@@ -73,12 +73,15 @@ public class DetectionUpdateRequester extends DetectionRequester {
         Log.d(ActivityUtils.APPTAG, "Starting Activity: " + activityIntervalMillis);
         ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(client, activityIntervalMillis, intent);
 
+        client.disconnect();
+
 
     }
 
     @Override
     protected void removeUpdatesFromClient(Context context, GoogleApiClient client, PendingIntent intent) {
         LocationServices.FusedLocationApi.removeLocationUpdates(client, intent);
+        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(client, intent);
     }
 
     @Override

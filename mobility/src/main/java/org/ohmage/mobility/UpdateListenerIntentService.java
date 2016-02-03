@@ -322,6 +322,7 @@ public class UpdateListenerIntentService extends IntentService {
 
         editor.apply();
 
+
     }
 
     private void writeResultToDsu(ActivityRecognitionResult result) {
@@ -373,6 +374,7 @@ public class UpdateListenerIntentService extends IntentService {
             if (location != null) {
                 try {
                     JSONObject body = new JSONObject();
+
                     body.put("latitude", location.getLatitude());
                     body.put("longitude", location.getLongitude());
                     body.put("accuracy", location.getAccuracy());

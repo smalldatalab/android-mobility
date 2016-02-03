@@ -31,15 +31,14 @@ android {
         }
     }
 
-
     compileSdkVersion 23
     buildToolsVersion "23.0.2"
     defaultConfig {
         applicationId "io.smalldatalab.android.mobility"
         minSdkVersion 9
         targetSdkVersion 23
-        versionCode 301015
-        versionName "3.1.15"
+        versionCode 301016
+        versionName "3.1.16"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
@@ -87,9 +86,7 @@ dependencies {
     compile('com.crashlytics.sdk.android:crashlytics:2.5.5@aar') {
         transitive = true;
     }
-    compile('com.crashlytics.sdk.android:crashlytics-ndk:1.1.2@aar') {
-        transitive = true;
-    }
+
 }
 
 crashlytics {
